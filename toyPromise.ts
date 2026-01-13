@@ -11,10 +11,9 @@ class ToyPromise {
   private onRejectedCallbacks: Function[] = [];
   private onFulfilledCallbacks: Function[] = [];
 
-  constructor(resolve: Function, reject?: Function) {
+  constructor(args: (resolve: Function, reject?: Function) => void) {
     this.state = ToyPromiseState.PENDING;
-    resolve(this.resolve.bind(this));
-    reject?.(this.reject.bind(this));
+    args(this.resolve.bind(this), this.reject.bind(this));
   }
 
   resolve(value: string) {
@@ -32,14 +31,18 @@ class ToyPromise {
   };
 
   then(onFulfilled?: Function, onRejected?: Function) {
-    return new ToyPromise((resolve: Function, reject: Function) => {
+    return new ToyPromise((resolve: Function, reject?: Function) => {
       if (this.state === ToyPromiseState.FULFILLED) {
-        const value = onFulfilled ? onFulfilled.call(this, this.value) : this.value;
-        resolve(value);
+        try {
+          const value = onFulfilled ? onFulfilled.call(this, this.value) : this.value;
+          resolve(value);
+        } catch (error) {
+          reject?.(error);
+        }
       }
       if (this.state === ToyPromiseState.REJECTED) {
         const reason = onRejected ? onRejected.call(this, this.reason) : this.reason;
-        reject(reason);
+        reject?.(reason);
       }
       if (this.state === ToyPromiseState.PENDING) {
         this.onFulfilledCallbacks.push(() => {
@@ -48,18 +51,28 @@ class ToyPromise {
         });
         this.onRejectedCallbacks.push(() => {
           const reason = onRejected ? onRejected.call(this, this.reason) : this.reason;
-          reject(reason);
+          reject?.(reason);
         });
       }
     });
   };
+
+  catch(onRejected?: Function) {
+    return this.then(undefined, onRejected);
+  };
 };
 
 (function () {
-  // new ToyPromise(res => res(1))
-  //   .then()  // onFulfilled가 없으면 값을 그대로 전달
-  //   .then(v => console.log(v)); // 1
+  new ToyPromise(res => res(1))
+    .then()  // onFulfilled가 없으면 값을 그대로 전달
+    .then(v => console.log(v)); // 1
   new ToyPromise(res => res(1))
     .then(v => new ToyPromise(res => res(v * 2)))  // Promise 반환
     .then(v => console.log(v)); // 2 (중첩되지 않고 평탄화됨)
+  new ToyPromise((_, rej) => rej?.('error'))
+    .then(v => v * 2)  // onRejected가 없으면 에러를 그대로 전파
+    .catch(e => console.log(e)); // 'error'
+  new ToyPromise(res => res(1))
+    .then(v => { throw new Error('boom'); })  // 예외 발생
+    .catch(e => console.log(e.message)); // 'boom'
 })();
