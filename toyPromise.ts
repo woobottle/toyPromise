@@ -2,6 +2,8 @@ class ToyPromise {
   private state: 'pending' | 'fulfilled' | 'rejected';
   private value: string;
   private reason: string;
+  private onRejectedCallbacks: ((value: string, reason: string) => void)[] = [];
+  private onFulfilledCallbacks: ((value: string, reason: string) => void)[] = [];
 
   resolve(reason: string, value: string) {
     if (this.state === 'pending') {
