@@ -60,19 +60,35 @@ class ToyPromise {
   catch(onRejected?: Function) {
     return this.then(undefined, onRejected);
   };
+
+  finally(onFinally?: Function) {
+    return this.then(
+      (value: unknown) => {
+        onFinally?.();
+        return value;  // 값 그대로 전달
+      },
+      (reason: unknown) => {
+        onFinally?.();
+        throw reason;  // 에러 그대로 전파
+      }
+    );
+  }
 };
 
 (function () {
   new ToyPromise(res => res(1))
     .then()  // onFulfilled가 없으면 값을 그대로 전달
-    .then(v => console.log(v)); // 1
+    .then((v: unknown) => console.log(v)); // 1
   new ToyPromise(res => res(1))
-    .then(v => new ToyPromise(res => res(v * 2)))  // Promise 반환
-    .then(v => console.log(v)); // 2 (중첩되지 않고 평탄화됨)
+    .then((v: number) => new ToyPromise(res => res(v * 2)))  // Promise 반환
+    .then((v: unknown) => console.log(v)); // 2 (중첩되지 않고 평탄화됨)
   new ToyPromise((_, rej) => rej?.('error'))
-    .then(v => v * 2)  // onRejected가 없으면 에러를 그대로 전파
-    .catch(e => console.log(e)); // 'error'
+    .then((v: number) => v * 2)  // onRejected가 없으면 에러를 그대로 전파
+    .catch((e: unknown) => console.log(e)); // 'error'
   new ToyPromise(res => res(1))
-    .then(v => { throw new Error('boom'); })  // 예외 발생
-    .catch(e => console.log(e.message)); // 'boom'
+    .then((v: unknown) => { throw new Error('boom'); })  // 예외 발생
+    .catch((e: Error) => console.log(e.message)); // 'boom'
+  new ToyPromise(res => res(1))
+    .finally(() => console.log('finally'))
+    .then((v: unknown) => console.log(v)); // 1
 })();
