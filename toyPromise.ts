@@ -6,8 +6,8 @@ enum ToyPromiseState {
 
 class ToyPromise {
   private state: ToyPromiseState;
-  private value: string;
-  private reason: string;
+  private value: unknown;
+  private reason: unknown;
   private onRejectedCallbacks: Function[] = [];
   private onFulfilledCallbacks: Function[] = [];
 
@@ -16,19 +16,27 @@ class ToyPromise {
     args(this.resolve.bind(this), this.reject.bind(this));
   }
 
-  resolve(value: string) {
+  resolve(value: unknown) {
     if (this.state === ToyPromiseState.PENDING) {
       this.state = ToyPromiseState.FULFILLED;
       this.value = value;
     }
   };
 
-  reject(reason: string) {
+  static resolve(value: unknown) {
+    return new ToyPromise((resolve: Function) => resolve(value));
+  }
+
+  reject(reason: unknown) {
     if (this.state === ToyPromiseState.PENDING) {
       this.state = ToyPromiseState.REJECTED;
       this.reason = reason;
     }
   };
+
+  static reject(reason: unknown) {
+    return new ToyPromise((_, reject?: Function) => { reject?.(reason) });
+  }
 
   then(onFulfilled?: Function, onRejected?: Function) {
     return new ToyPromise((resolve: Function, reject?: Function) => {
@@ -91,4 +99,6 @@ class ToyPromise {
   new ToyPromise(res => res(1))
     .finally(() => console.log('finally'))
     .then((v: unknown) => console.log(v)); // 1
+  ToyPromise.resolve(42).then((v: unknown) => console.log(v)); // 42
+  ToyPromise.reject('error').catch((e: unknown) => console.log(e)); // 'error'
 })();
