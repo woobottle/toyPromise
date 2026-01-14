@@ -20,6 +20,10 @@ class ToyPromise {
     if (this.state === ToyPromiseState.PENDING) {
       this.state = ToyPromiseState.FULFILLED;
       this.value = value;
+      const callbacks = this.onFulfilledCallbacks.slice();
+      this.onFulfilledCallbacks = [];
+      this.onRejectedCallbacks = [];
+      callbacks.forEach((cb) => cb());
     }
   };
 
@@ -31,6 +35,10 @@ class ToyPromise {
     if (this.state === ToyPromiseState.PENDING) {
       this.state = ToyPromiseState.REJECTED;
       this.reason = reason;
+      const callbacks = this.onRejectedCallbacks.slice();
+      this.onFulfilledCallbacks = [];
+      this.onRejectedCallbacks = [];
+      callbacks.forEach((cb) => cb());
     }
   };
 
@@ -40,26 +48,63 @@ class ToyPromise {
 
   then(onFulfilled?: Function, onRejected?: Function) {
     return new ToyPromise((resolve: Function, reject?: Function) => {
+      console.log('this.state', this.state);
       if (this.state === ToyPromiseState.FULFILLED) {
-        try {
-          const value = onFulfilled ? onFulfilled.call(this, this.value) : this.value;
-          resolve(value);
-        } catch (error) {
-          reject?.(error);
-        }
+        queueMicrotask(() => {
+          try {
+            if (typeof onFulfilled === 'function') {
+              const value = onFulfilled.call(this, this.value);
+              resolve(value);
+            } else {
+              resolve(this.value);
+            }
+          } catch (error) {
+            reject?.(error);
+          }
+        });
       }
       if (this.state === ToyPromiseState.REJECTED) {
-        const reason = onRejected ? onRejected.call(this, this.reason) : this.reason;
-        reject?.(reason);
+        queueMicrotask(() => {
+          try {
+            if (typeof onRejected === 'function') {
+              const reason = onRejected.call(this, this.reason);
+              resolve(reason);
+            } else {
+              reject?.(this.reason);
+            }
+          } catch (error) {
+            reject?.(error);
+          }
+        });
       }
       if (this.state === ToyPromiseState.PENDING) {
         this.onFulfilledCallbacks.push(() => {
-          const value = onFulfilled ? onFulfilled.call(this, this.value) : this.value;
-          resolve(value);
+          queueMicrotask(() => {
+            try {
+              if (typeof onFulfilled === 'function') {
+                const value = onFulfilled.call(this, this.value);
+                resolve(value);
+              } else {
+                resolve(this.value);
+              }
+            } catch (error) {
+              reject?.(error);
+            }
+          });
         });
         this.onRejectedCallbacks.push(() => {
-          const reason = onRejected ? onRejected.call(this, this.reason) : this.reason;
-          reject?.(reason);
+          queueMicrotask(() => {
+            try {
+              if (typeof onRejected === 'function') {
+                const reason = onRejected.call(this, this.reason);
+                resolve(reason);
+              } else {
+                reject?.(this.reason);
+              }
+            } catch (error) {
+              reject?.(error);
+            }
+          });
         });
       }
     });
@@ -84,21 +129,32 @@ class ToyPromise {
 };
 
 (function () {
-  new ToyPromise(res => res(1))
-    .then()  // onFulfilled가 없으면 값을 그대로 전달
-    .then((v: unknown) => console.log(v)); // 1
+  // new ToyPromise(res => res(1))
+  //   .then()  // onFulfilled가 없으면 값을 그대로 전달
+  //   .then((v: unknown) => console.log(v)); // 1
   new ToyPromise(res => res(1))
     .then((v: number) => new ToyPromise(res => res(v * 2)))  // Promise 반환
     .then((v: unknown) => console.log(v)); // 2 (중첩되지 않고 평탄화됨)
   new ToyPromise((_, rej) => rej?.('error'))
     .then((v: number) => v * 2)  // onRejected가 없으면 에러를 그대로 전파
     .catch((e: unknown) => console.log(e)); // 'error'
-  new ToyPromise(res => res(1))
-    .then((v: unknown) => { throw new Error('boom'); })  // 예외 발생
-    .catch((e: Error) => console.log(e.message)); // 'boom'
-  new ToyPromise(res => res(1))
-    .finally(() => console.log('finally'))
-    .then((v: unknown) => console.log(v)); // 1
-  ToyPromise.resolve(42).then((v: unknown) => console.log(v)); // 42
-  ToyPromise.reject('error').catch((e: unknown) => console.log(e)); // 'error'
+  // new ToyPromise(res => res(1))
+  //   .then((v: unknown) => { throw new Error('boom'); })  // 예외 발생
+  //   .catch((e: Error) => console.log(e.message)); // 'boom'
+  // new ToyPromise(res => res(1))
+  //   .finally(() => console.log('finally'))
+  //   .then((v: unknown) => console.log(v)); // 1
+  // ToyPromise.resolve(42).then((v: unknown) => console.log(v)); // 42
+  // ToyPromise.reject('error').catch((e: unknown) => console.log(e)); // 'error'
+  // const p = new ToyPromise((resolve) => resolve(1));
+  // p.then(v => v * 10)
+  //   .then(v => v + 10)
+  //   .then(v => console.log('완성된 값', v)); // 20
+  // function later(v, t = 50) {
+  //   return new ToyPromise(res => setTimeout(() => res(v), t));
+  // }
+  // new ToyPromise(res => res(1))
+  //   .then(v => later(v * 2))    // 여기서 ToyPromise 반환
+  //   .then(v => later(v + 3))    // flattening 검증
+  //   .then(v => console.log(v)); // 5
 })();
