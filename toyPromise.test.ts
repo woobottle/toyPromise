@@ -109,4 +109,27 @@ describe("ToyPromise", () => {
 		// microtask should run before the function returns
 		expect(order).toEqual(["start", "microtask", "end"]);
 	});
+
+	// 12. all 테스트
+	test("should resolve all promises", async () => {
+		const result = await ToyPromise.all([ToyPromise.resolve(1), ToyPromise.resolve(2)]);
+		expect(result).toEqual([1, 2]);
+	});
+
+	// 13. race 테스트
+	test("should resolve the first promise", async () => {
+		const result = await ToyPromise.race([new ToyPromise((res) => setTimeout(() => res(1), 1000)), new ToyPromise((res) => setTimeout(() => res(2), 2000))]);
+		expect(result).toBe(1);
+	});
+
+	// 14. thenable 테스트
+	test("should resolve thenable", async () => {
+		const thenable = {
+			then(onFulfilled: (value: unknown) => unknown) { onFulfilled(42); }
+		};
+
+		const result = await new ToyPromise(res => res(thenable))
+			.then(v => v);
+		expect(result).toBe(42);
+	});
 });
