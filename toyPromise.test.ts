@@ -124,8 +124,12 @@ describe("ToyPromise", () => {
 
 	// 14. thenable 테스트
 	test("should resolve thenable", async () => {
-		const result = await new ToyPromise((res) => res({ then: (onFulfilled: (value: unknown) => unknown) => onFulfilled(1) }))
-			.then((v) => v);
-		expect(result).toBe(1);
+		const thenable = {
+			then(onFulfilled: (value: unknown) => unknown) { onFulfilled(42); }
+		};
+
+		const result = await new ToyPromise(res => res(thenable))
+			.then(v => v);
+		expect(result).toBe(42);
 	});
 });
