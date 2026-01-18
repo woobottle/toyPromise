@@ -34,6 +34,10 @@ class ToyPromise {
   }
 
   resolve(value: unknown) {
+    if (!(value instanceof ToyPromise) && typeof value === "object" && value !== null && value.hasOwnProperty("then")) {
+      (value as { then: OnFulfilledFunc }).then(this.resolve.bind(this));
+      return;
+    }
     if (this.state === ToyPromiseState.PENDING) {
       this.state = ToyPromiseState.FULFILLED;
       this.value = value;
@@ -162,6 +166,39 @@ class ToyPromise {
       },
     );
   }
+
+  static all(promises: ToyPromise[]) {
+    return new ToyPromise((resolve, reject) => {
+      const results: unknown[] = [];
+      let resolvedCount = 0;
+      for (let i = 0; i < promises.length; i++) {
+        promises[i].then((value) => {
+          results[i] = value;
+          resolvedCount++;
+          if (resolvedCount === promises.length) {
+            resolve(results);
+          }
+        });
+        promises[i].catch((reason) => {
+          reject?.(reason);
+        });
+      }
+    });
+  }
+
+  static race(promises: ToyPromise[]) {
+    return new ToyPromise((resolve, reject) => {
+      for (let i = 0; i < promises.length; i++) {
+        promises[i].then((value) => {
+          resolve(value);
+        });
+        promises[i].catch((reason) => {
+          reject?.(reason);
+        });
+      }
+    });
+  }
 }
 
 export { ToyPromise };
+
